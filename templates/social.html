@@ -1,12 +1,14 @@
 {% extends "base.html" %}
-{% from "components.html" import entry %}
 {% block content %}
-  <header class="page-heading">
-    <p class="eyebrow">ELSEWHERE</p><h1>Social</h1>
-    <p class="dek">Posts and reels, with related notes and resources on the blog.</p>
-    <div class="source-links"><a href="{{ site.linkedin }}">LinkedIn profile ↗</a><a href="{{ site.instagram }}">Instagram profile ↗</a></div>
-  </header>
-  <section class="reading" aria-label="Social posts">
-    {% for post in social_posts %}{{ entry(post) }}{% else %}<p>Individual posts and reels will appear here as they are added.</p>{% endfor %}
-  </section>
+<section class="link-profile" style="background:{{ links.background }};color:{{ links.foreground }}">
+  {% if links.image %}<img class="link-avatar" src="{{ url('assets/uploads/' + links.image) }}" alt="{{ links.title }}">{% else %}<div class="link-avatar initials" aria-hidden="true">YC</div>{% endif %}
+  <h1>{{ links.title }}</h1>
+  <p>{{ links.bio }}</p>
+  <div class="link-buttons">
+    <a href="{{ url('archive/') }}" style="background:{{ links.button }}">Read my posts <span aria-hidden="true">↗</span></a>
+    {% for link in links.links %}
+    <a href="{{ link.url }}" style="background:{{ links.button }}">{{ link.label }} <span aria-hidden="true">↗</span></a>
+    {% endfor %}
+  </div>
+</section>
 {% endblock %}

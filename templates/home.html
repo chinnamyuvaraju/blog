@@ -5,7 +5,7 @@
     <div>
       <p class="eyebrow"><span class="dot"></span> A PERSONAL ACADEMIC BLOG</p>
       <h1>{{ site.name.rsplit(' ', 1)[0] }}<br>{{ site.name.rsplit(' ', 1)[-1] }}<span class="accent">.</span></h1>
-      <p class="dek">Notes on AI, teaching, and research.<br class="wide-break"> Written for students, educators, and curious readers.</p>
+      <div class="prose dek">{{ home.body }}</div>
     </div>
     <aside class="author-panel" aria-label="About the author">
       <p class="eyebrow">ABOUT THE AUTHOR</p>
@@ -38,7 +38,7 @@
       <section aria-labelledby="elsewhere">
         <h2 id="elsewhere" class="eyebrow">ELSEWHERE</h2>
         <p>Find original posts and reels alongside the notes they relate to.</p>
-        <a class="text-link" href="{{ url('social/') }}">Social archive <span aria-hidden="true">→</span></a>
+        <a class="text-link" href="{{ url('social/') }}">My links <span aria-hidden="true">→</span></a>
       </section>
     </aside>
   </div>
