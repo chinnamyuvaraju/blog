@@ -1,0 +1,12 @@
+{
+  "title": "Dr. Yuvaraju Chinnam",
+  "bio": "AI · Teaching · Research",
+  "background": "#e7ede3",
+  "foreground": "#203a2e",
+  "button": "#ffffff",
+  "image": "",
+  "links": [
+    {"label": "LinkedIn", "url": "https://www.linkedin.com/in/dr-yuvaraju-chinnam/"},
+    {"label": "Instagram", "url": "https://www.instagram.com/yuvrajchinnam/"}
+  ]
+}

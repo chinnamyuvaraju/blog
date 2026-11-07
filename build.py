@@ -1,5 +1,7 @@
 """Build the Markdown blog into dist/."""
 import argparse
+import json
+import os
 from collections import Counter
 from datetime import date
 from pathlib import Path
@@ -57,6 +59,10 @@ def load_posts():
             if section != ".":
                 tags = [*tags, section.replace("/", " / ").replace("-", " ").title()]
             post["tags"] = list(dict.fromkeys(tag.strip() for tag in tags))
+            for platform in SOCIAL:
+                if post.get(platform):
+                    post["tags"].append(platform.title())
+            post["tags"] = list(dict.fromkeys(post["tags"]))
             for platform, (domain, *prefixes) in SOCIAL.items():
                 link = post.get(platform)
                 if link:
@@ -80,6 +86,19 @@ def build(site_url):
         raise SystemExit("Use a full site URL, e.g. https://owner.github.io/blog")
     site = yaml.safe_load((ROOT / "site.yml").read_text(encoding="utf-8"))
     posts = load_posts()
+    home = read_markdown(ROOT / "home.md")
+    about = read_markdown(ROOT / "about.md")
+    links = json.loads((ROOT / "social.json").read_text(encoding="utf-8"))
+    for field in ("background", "foreground", "button"):
+        if not re.fullmatch(r"#[0-9a-fA-F]{6}", links[field]):
+            raise SystemExit(f"Social {field} must be a six-digit hex color")
+    for link in links["links"]:
+        if urlsplit(link["url"]).scheme not in {"https", "http"}:
+            raise SystemExit("Social links must use https:// or http://")
+    if links.get("image") and not re.fullmatch(r"[a-zA-Z0-9._-]+", links["image"]):
+        raise SystemExit("Use an uploaded image filename for the Social portrait")
+    for page in [*posts, home, about]:
+        page["body"] = Markup(str(page["body"]).replace('src="media:', f'src="{parts.path}/assets/uploads/'))
     topics = sorted(Counter(tag for post in posts for tag in post["tags"]).items(), key=lambda item: item[0].casefold())
     years = sorted({post["date"].year for post in posts}, reverse=True)
     env = Environment(
@@ -90,7 +109,7 @@ def build(site_url):
         lstrip_blocks=True,
     )
     env.globals.update(
-        site=site, posts=posts, topics=topics, years=years, site_url=site_url,
+        site=site, home=home, links=links, posts=posts, topics=topics, years=years, site_url=site_url,
         url=lambda path="": f"{parts.path}/{path}",
         absolute=lambda path="": f"{site_url}/{path}",
     )
@@ -100,6 +119,8 @@ def build(site_url):
         output.mkdir()
         shutil.copytree(ROOT / "assets", output / "assets")
         (output / ".nojekyll").touch()
+        repository = os.environ.get("GITHUB_REPOSITORY", site.get("repository", "chinnamyuvaraju/yuvaraju-blog"))
+        (output / "assets/admin-config.js").write_text("window.BLOG_REPOSITORY = " + json.dumps(repository) + ";", encoding="utf-8")
 
         def render(template, path, *, filename="index.html", **context):
             file = output / path / filename
@@ -110,7 +131,6 @@ def build(site_url):
         render("archive.html", "archive/", title="Archive", active="archive")
         render("social.html", "social/", title="Social", active="social",
                social_posts=[post for post in posts if any(post.get(name) for name in SOCIAL)])
-        about = read_markdown(ROOT / "about.md")
         render("about.html", "about/", title="About", active="about", about=about)
         for post in posts:
             render("post.html", post["path"], title=post["title"], active=None, post=post)
