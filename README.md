@@ -1,6 +1,6 @@
 # Dr. Yuvaraju Chinnam’s blog
 
-A personal academic blog inspired by [S Anand’s site](https://www.s-anand.net/). The home page has an author introduction and recent posts. The archive filters by topic, year, and keyword. The Social page lists notes with links to individual LinkedIn or Instagram posts.
+A personal academic blog. The home page has an author introduction and recent posts. The archive filters by topic, year, and keyword. The Social page lists notes with links to individual LinkedIn or Instagram posts.
 
 ## Publish on GitHub Pages
 
