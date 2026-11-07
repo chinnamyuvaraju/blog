@@ -38,7 +38,7 @@ def read_markdown(path):
 def load_posts():
     posts = []
     slugs = set()
-    for path in sorted((ROOT / "posts").glob("*.md")):
+    for path in sorted((ROOT / "posts").rglob("*.md")):
         try:
             post = read_markdown(path)
             match = re.fullmatch(r"(\d{4}-\d{2}-\d{2})-([a-z0-9]+(?:-[a-z0-9]+)*)", path.stem)
@@ -53,6 +53,9 @@ def load_posts():
             tags = post.get("tags", [])
             if not isinstance(tags, list) or any(not isinstance(tag, str) or not tag.strip() for tag in tags):
                 raise ValueError("tags must be a list of non-empty strings")
+            section = path.parent.relative_to(ROOT / "posts").as_posix()
+            if section != ".":
+                tags = [*tags, section.replace("/", " / ").replace("-", " ").title()]
             post["tags"] = list(dict.fromkeys(tag.strip() for tag in tags))
             for platform, (domain, *prefixes) in SOCIAL.items():
                 link = post.get(platform)
