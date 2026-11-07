@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blog admin</title>
+<link rel="stylesheet" href="site.css">
+<style>
+main{max-width:900px;margin:40px auto;padding:20px}h1{font-size:2.8rem;margin-bottom:20px}label{display:block;margin:15px 0}input,textarea,button,select{font:inherit;padding:8px;max-width:100%}input,textarea,select{width:100%;border:1px solid #8a978a;background:#fff}textarea{min-height:420px;font-family:monospace;font-size:.9rem}button{cursor:pointer;border:1px solid #315d48;background:#eff2e9;margin:8px 8px 8px 0}#status{white-space:pre-wrap;padding:12px;background:#eff2e9}small{display:block;color:#555e54}
+</style>
+<main>
+<a href="../">← Blog</a><h1>Blog admin</h1>
+<p>Upload Markdown, write a post, or update an existing article. GitHub checks your editing permission whenever you save.</p>
+<section id="login">
+<p>Use your GitHub account’s fine-grained access token for <b>chinnamyuvaraju/yuvaraju-blog</b>, with <b>Contents — Read and write</b>. Keep repository access limited to this blog.</p>
+<p><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a token in GitHub ↗</a>. Set an expiration, choose only this repository, and copy it here. The token stays in this tab’s memory until you sign out or reload.</p>
+<form id="signin"><label>GitHub access token<input id="token" type="password" autocomplete="off" required></label><button>Sign in</button></form>
+</section>
+<section id="editor" hidden>
+<p id="identity"></p><button id="logout" type="button">Sign out</button>
+<p><a href="https://github.com/chinnamyuvaraju/yuvaraju-blog/actions/workflows/pages.yml" target="_blank" rel="noopener">Check publishing progress ↗</a></p>
+<label>Existing posts<select id="posts"><option value="">Choose a post</option></select></label>
+<button id="load" type="button">Open selected post</button><button id="new" type="button">New post</button>
+<label>Upload a Markdown file<input id="upload" type="file" accept=".md,text/markdown"></label>
+<label>Folder / section<input id="folder" placeholder="e.g. teaching or research/ai"><small>A folder is created with its first post. Its name becomes a topic in the blog archive. Remove its last post to remove the folder.</small></label>
+<label>Filename<input id="filename" placeholder="2026-11-07-my-post.md" required><small>Keep the filename unchanged when updating a published article.</small></label>
+<label>Markdown<textarea id="markdown" spellcheck="false"></textarea></label>
+<button id="save" type="button">Save and publish</button><button id="delete" type="button">Delete post</button>
+<p>Changes normally appear after the publishing workflow finishes. Deleted posts remain recoverable in GitHub’s commit history.</p>
+</section>
+<p id="status" role="status">Sign in to edit.</p>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const repo = "chinnamyuvaraju/yuvaraju-blog";
+const apiRoot = "https://api.github.com/repos/" + repo;
+let token = "", current = null, busy = false;
+function message(text) { $("status").textContent = text; }
+async function api(path, options = {}) {
+  const response = await fetch(apiRoot + path, {
+    ...options,
+    headers: {Accept: "application/vnd.github+json", Authorization: "Bearer " + token,
+      "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json"}
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(response.status + ": " + (body.message || "GitHub request failed"));
+  return body;
+}
+function encode(text) {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+function decode(text) {
+  return new TextDecoder().decode(Uint8Array.from(atob(text.replace(/\s/g, "")), c => c.charCodeAt(0)));
+}
+async function refresh() {
+  const branch = await api("/git/trees/main?recursive=1");
+  if (branch.truncated) throw new Error("Post listing is too large. Use GitHub to manage this repository.");
+  const paths = branch.tree.filter(item => item.type === "blob" && /^posts\/.+\.md$/.test(item.path));
+  $("posts").replaceChildren(new Option("Choose a post", ""));
+  for (const file of paths) $("posts").add(new Option(file.path.slice(6), file.path));
+}
+function reset() {
+  current = null;
+  $("filename").value = new Date().toISOString().slice(0,10) + "-new-post.md";
+  $("folder").value = "";
+  $("markdown").value = '---\ntitle: "Your title"\nsummary: "A short description"\ntags: [Teaching]\n---\n\nWrite your post here.\n';
+  $("upload").value = "";
+}
+async function run(action) {
+  if (busy) return;
+  busy = true;
+  for (const button of document.querySelectorAll("button")) button.disabled = true;
+  try { await action(); } catch (error) { message(error.message); }
+  finally {
+    busy = false;
+    for (const button of document.querySelectorAll("button")) button.disabled = false;
+  }
+}
+$("signin").onsubmit = event => {
+  event.preventDefault();
+  run(async () => {
+    token = $("token").value.trim();
+    $("token").value = "";
+    try {
+      const repository = await api("");
+      if (!repository.permissions || !repository.permissions.push) throw new Error("This account does not have write access to the blog.");
+      await refresh();
+      $("identity").textContent = "Editing " + repo;
+      $("login").hidden = true;
+      $("editor").hidden = false;
+      reset();
+      message("Signed in. Select a post or create a new one.");
+    } catch (error) { token = ""; throw error; }
+  });
+};
+$("logout").onclick = () => {
+  token = ""; current = null;
+  $("editor").hidden = true; $("login").hidden = false;
+  $("markdown").value = ""; $("posts").replaceChildren();
+  message("Signed out.");
+};
+$("new").onclick = () => {
+  if ($("markdown").value && !confirm("Discard the current editor text and start a new post?")) return;
+  reset(); message("New post ready.");
+};
+$("load").onclick = () => run(async () => {
+  const path = $("posts").value;
+  if (!path) throw new Error("Choose a post first.");
+  if (!confirm("Replace the current editor text with the selected post?")) return;
+  const file = await api("/contents/" + path + "?ref=main");
+  current = {path, sha: file.sha};
+  const segments = path.slice(6).split("/");
+  $("filename").value = segments.pop();
+  $("folder").value = segments.join("/");
+  $("markdown").value = decode(file.content);
+  message("Loaded " + path);
+});
+$("upload").onchange = () => run(async () => {
+  const file = $("upload").files[0];
+  if (!file) return;
+  if (file.size > 1000000) throw new Error("Use a Markdown file smaller than 1 MB.");
+  if (!file.name.endsWith(".md")) throw new Error("Choose a .md file.");
+  if (!confirm("Replace the editor with this Markdown file?")) return;
+  const text = await file.text();
+  current = null;
+  $("filename").value = file.name;
+  $("markdown").value = text;
+  message("Markdown imported. Check the folder and filename before publishing.");
+});
+function destination() {
+  const filename = $("filename").value.trim();
+  const folder = $("folder").value.trim().replace(/^\/+|\/+$/g, "");
+  if (!/^\d{4}-\d{2}-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(filename)) throw new Error("Use YYYY-MM-DD-title-with-hyphens.md");
+  const day = filename.slice(0,10);
+  if (!Number.isFinite(Date.parse(day)) || new Date(day).toISOString().slice(0,10) !== day) throw new Error("Use a valid date.");
+  if (folder && !/^[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*$/.test(folder)) throw new Error("Use lowercase folder names with hyphens, separated by /.");
+  const path = "posts/" + (folder ? folder + "/" : "") + filename;
+  if (current && current.path !== path) throw new Error("Keep the original folder and filename when updating. Use New post to create a separate article.");
+  return path;
+}
+$("save").onclick = () => run(async () => {
+  const path = destination(), text = $("markdown").value;
+  if (!/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/.test(text)) throw new Error("Include YAML front matter between --- lines with title, summary, and tags.");
+  if (!/^title:\s*\S/m.test(text) || !/^summary:\s*\S/m.test(text)) throw new Error("Add title and summary to the front matter.");
+  await api("/contents/" + path, {method:"PUT", body:JSON.stringify({
+    message: (current ? "Update " : "Create ") + path, branch:"main",
+    content:encode(text), ...(current ? {sha:current.sha} : {})
+  })});
+  const saved = await api("/contents/" + path + "?ref=main");
+  current = {path, sha:saved.sha};
+  await refresh(); $("posts").value = path;
+  message("Saved to GitHub. Publishing has started. Check publishing progress above. If a build fails, check the Markdown fields.");
+});
+$("delete").onclick = () => run(async () => {
+  if (!current) throw new Error("Open the post you want to delete first.");
+  if (!confirm("Delete " + current.path + " from the blog?")) return;
+  await api("/contents/" + current.path, {method:"DELETE", body:JSON.stringify({
+    message:"Delete " + current.path, branch:"main", sha:current.sha
+  })});
+  reset(); await refresh();
+  message("Post deleted. The publishing workflow will update the blog.");
+});
+</script>
+</html>
