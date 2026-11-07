@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "components.html" import entry %}
+{% block scripts %}<script src="{{ url('assets/archive.js') }}" defer></script>{% endblock %}
+{% block content %}
+  <header class="page-heading">
+    <p class="eyebrow">THE INDEX</p><h1>Archive</h1>
+    <p class="dek">Browse the notes by topic, year, or keyword.</p>
+  </header>
+  <form id="archive-filters" class="filters" role="search" aria-label="Filter posts" hidden>
+    <label>Search posts <input name="q" type="search" placeholder="e.g. FastAPI"></label>
+    <label>Topic <select name="topic"><option value="">All topics</option>{% for topic, _ in topics %}<option>{{ topic }}</option>{% endfor %}</select></label>
+    <label>Year <select name="year"><option value="">All years</option>{% for year in years %}<option>{{ year }}</option>{% endfor %}</select></label>
+  </form>
+  <p id="results" class="entry-meta" role="status"></p>
+  <section class="reading" aria-label="All posts">
+    {% for post in posts %}{{ entry(post) }}{% else %}<p>There are no posts yet.</p>{% endfor %}
+  </section>
+{% endblock %}

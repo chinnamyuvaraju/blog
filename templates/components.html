@@ -1,0 +1,21 @@
+{% macro date_label(date) %}
+<time datetime="{{ date.isoformat() }}">{{ date.strftime('%d %b %Y') }}</time>
+{% endmacro %}
+
+{% macro social_links(post) %}
+{% if post.get('linkedin') or post.get('instagram') %}
+<div class="source-links">
+  {% if post.get('linkedin') %}<a href="{{ post.linkedin }}">LinkedIn post <span aria-hidden="true">↗</span></a>{% endif %}
+  {% if post.get('instagram') %}<a href="{{ post.instagram }}">Instagram post or reel <span aria-hidden="true">↗</span></a>{% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro entry(post, heading='h2') %}
+<article class="entry" data-entry data-year="{{ post.date.year }}" data-tags="{{ post.tags | tojson | forceescape }}">
+  <div class="entry-meta">{{ date_label(post.date) }}{% if post.tags %}<span class="divider">/</span>{{ post.tags | join(' · ') }}{% endif %}</div>
+  <{{ heading }}><a href="{{ url(post.path) }}">{{ post.title }}</a></{{ heading }}>
+  <p>{{ post.summary }}</p>
+  {{ social_links(post) }}
+</article>
+{% endmacro %}

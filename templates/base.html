@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if title %}{{ title }} · {% endif %}{{ site.name }}</title>
+  {% set description = post.summary if post is defined else site.description %}
+  <meta name="description" content="{{ description }}">
+  {% if missing is not defined %}
+  <link rel="canonical" href="{{ absolute(path) }}">
+  <meta property="og:title" content="{{ title or site.name }}">
+  <meta property="og:description" content="{{ description }}">
+  <meta property="og:url" content="{{ absolute(path) }}">
+  <meta property="og:type" content="{{ 'article' if post is defined else 'website' }}">
+  {% else %}
+  <meta name="robots" content="noindex">
+  {% endif %}
+  <link rel="alternate" type="application/atom+xml" title="{{ site.name }}" href="{{ url('feed.xml') }}">
+  <link rel="stylesheet" href="{{ url('assets/site.css') }}">
+  <link rel="icon" href="{{ url('assets/favicon.svg') }}" type="image/svg+xml">
+  {% block scripts %}{% endblock %}
+</head>
+<body>
+  <a href="#content" class="skip-link">Skip to content</a>
+  <header class="site-header">
+    <div class="frame topbar">
+      <a class="signature" href="{{ url() }}"><span class="monogram" aria-hidden="true">YC</span>{{ site.name }}</a>
+      <nav aria-label="Main navigation">
+        {% for key, label, route in [('home', 'Home', ''), ('archive', 'Archive', 'archive/'), ('social', 'Social', 'social/'), ('about', 'About', 'about/')] %}
+          <a href="{{ url(route) }}"{% if active == key %} aria-current="page"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </nav>
+    </div>
+  </header>
+  <main id="content" class="frame">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="frame footer">
+    <span>{{ site.name }} <span class="divider">/</span> AI, teaching &amp; research</span>
+    <div><a href="{{ site.linkedin }}">LinkedIn</a><a href="{{ site.instagram }}">Instagram</a><a href="{{ url('feed.xml') }}">RSS</a></div>
+  </footer>
+</body>
+</html>

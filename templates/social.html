@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "components.html" import entry %}
+{% block content %}
+  <header class="page-heading">
+    <p class="eyebrow">ELSEWHERE</p><h1>Social</h1>
+    <p class="dek">Posts and reels, with related notes and resources on the blog.</p>
+    <div class="source-links"><a href="{{ site.linkedin }}">LinkedIn profile ↗</a><a href="{{ site.instagram }}">Instagram profile ↗</a></div>
+  </header>
+  <section class="reading" aria-label="Social posts">
+    {% for post in social_posts %}{{ entry(post) }}{% else %}<p>Individual posts and reels will appear here as they are added.</p>{% endfor %}
+  </section>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+  <header class="page-heading">
+    <p class="eyebrow">ABOUT</p><h1>{{ site.name }}</h1>
+    <p class="dek">{{ site.role }}</p>
+  </header>
+  <article class="prose reading">{{ about.body }}</article>
+{% endblock %}

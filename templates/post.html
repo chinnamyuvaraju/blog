@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "components.html" import date_label, social_links %}
+{% block content %}
+  <article class="reading">
+    <header class="page-heading">
+      <a class="back text-link" href="{{ url('archive/') }}">← All posts</a>
+      <div class="entry-meta">{{ date_label(post.date) }}{% for tag in post.tags %}<span class="divider">/</span><a href="{{ url('archive/') }}?topic={{ tag | urlencode }}">{{ tag }}</a>{% endfor %}</div>
+      <h1>{{ post.title }}</h1>
+      <p class="dek">{{ post.summary }}</p>
+      {{ social_links(post) }}
+    </header>
+    <div class="prose">{{ post.body }}</div>
+  </article>
+{% endblock %}
