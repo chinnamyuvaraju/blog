@@ -123,6 +123,8 @@ $("load").onclick = () => run(async () => {
   if (!path) throw new Error("Choose a post first.");
   if (!confirm("Replace the current editor text with the selected post?")) return;
   const file = await api("/contents/" + path + "?ref=main");
+  $("mode").value = "posts";
+  $("social-tools").hidden = true;
   current = {path, sha: file.sha};
   const segments = path.slice(6).split("/");
   $("filename").value = segments.pop();
@@ -138,6 +140,8 @@ $("upload").onchange = () => run(async () => {
   if (!confirm("Replace the editor with this Markdown file?")) return;
   const text = await file.text();
   current = null;
+  $("mode").value = "posts";
+  $("social-tools").hidden = true;
   $("filename").value = file.name;
   $("markdown").value = text;
   message("Markdown imported. Check the folder and filename before publishing.");
@@ -178,7 +182,10 @@ $("media").onchange = () => run(async () => {
   message("Image uploaded. Add the Markdown image link to your page and save.");
 });
 function destination() {
-  if ($("mode").value !== "posts") return $("mode").value;
+  if ($("mode").value !== "posts") {
+    if (!current || current.path !== $("mode").value) throw new Error("Reopen this page from the admin menu before saving.");
+    return current.path;
+  }
   const filename = $("filename").value.trim();
   const folder = $("folder").value.trim().replace(/^\/+|\/+$/g, "");
   if (!/^\d{4}-\d{2}-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(filename)) throw new Error("Use YYYY-MM-DD-title-with-hyphens.md");
