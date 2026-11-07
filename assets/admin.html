@@ -18,6 +18,10 @@ main{max-width:900px;margin:40px auto;padding:20px}h1{font-size:2.8rem;margin-bo
 <section id="editor" hidden>
 <p id="identity"></p><button id="logout" type="button">Sign out</button>
 <p><a href="https://github.com/chinnamyuvaraju/yuvaraju-blog/actions/workflows/pages.yml" target="_blank" rel="noopener">Check publishing progress ↗</a></p>
+<label>Admin menu<select id="mode"><option value="posts">Posts</option><option value="home.md">Home page</option><option value="about.md">About page</option><option value="site.yml">Name, biography and profile links</option><option value="social.json">Social links and background</option></select></label>
+<div id="social-tools" hidden><p>Edit the title, bio and links below. Links appear in their listed order. Use an uploaded image filename for the portrait.</p><label>Background<input id="bg" type="color"></label><label>Text color<input id="fg" type="color"></label><label>Button color<input id="bc" type="color"></label><button id="apply-colors" type="button">Apply colors to editor</button></div>
+<label>Upload an image or GIF<input id="media" type="file" accept="image/png,image/jpeg,image/gif,image/webp"></label>
+<p id="media-result"></p>
 <label>Existing posts<select id="posts"><option value="">Choose a post</option></select></label>
 <button id="load" type="button">Open selected post</button><button id="new" type="button">New post</button>
 <label>Upload a Markdown file<input id="upload" type="file" accept=".md,text/markdown"></label>
@@ -29,11 +33,14 @@ main{max-width:900px;margin:40px auto;padding:20px}h1{font-size:2.8rem;margin-bo
 </section>
 <p id="status" role="status">Sign in to edit.</p>
 </main>
+<script src="admin-config.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
-const repo = "chinnamyuvaraju/yuvaraju-blog";
+const repo = window.BLOG_REPOSITORY || "chinnamyuvaraju/yuvaraju-blog";
 const apiRoot = "https://api.github.com/repos/" + repo;
+document.querySelector("#login b").textContent=repo;
+document.querySelector('a[href*="/actions/workflows/"]').href="https://github.com/"+repo+"/actions/workflows/pages.yml";
 let token = "", current = null, busy = false;
 function message(text) { $("status").textContent = text; }
 async function api(path, options = {}) {
@@ -43,7 +50,10 @@ async function api(path, options = {}) {
       "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json"}
   });
   const body = await response.json();
-  if (!response.ok) throw new Error(response.status + ": " + (body.message || "GitHub request failed"));
+  if (!response.ok) {
+    const hint = response.status === 403 ? "\nCheck your token settings: resource owner must own this repository, repository access must include " + repo + ", and Contents must be Read and write. Sign out and sign in again after updating the token." : "";
+    throw new Error(response.status + " during " + (options.method || "GET") + " " + path.split("?")[0] + ": " + (body.message || "GitHub request failed") + hint);
+  }
   return body;
 }
 function encode(text) {
@@ -63,6 +73,8 @@ async function refresh() {
   for (const file of paths) $("posts").add(new Option(file.path.slice(6), file.path));
 }
 function reset() {
+  $("mode").value = "posts";
+  $("social-tools").hidden = true;
   current = null;
   $("filename").value = new Date().toISOString().slice(0,10) + "-new-post.md";
   $("folder").value = "";
@@ -130,7 +142,43 @@ $("upload").onchange = () => run(async () => {
   $("markdown").value = text;
   message("Markdown imported. Check the folder and filename before publishing.");
 });
+$("mode").onchange = () => run(async () => {
+  const mode = $("mode").value;
+  if (mode === "posts") { reset(); return; }
+  const file = await api("/contents/" + mode + "?ref=main");
+  current = {path:mode, sha:file.sha};
+  $("folder").value = "";
+  $("filename").value = mode;
+  $("markdown").value = decode(file.content);
+  $("social-tools").hidden = mode !== "social.json";
+  if (mode === "social.json") {
+    const data = JSON.parse($("markdown").value);
+    $("bg").value=data.background; $("fg").value=data.foreground; $("bc").value=data.button;
+  }
+  message("Editing " + mode);
+});
+$("apply-colors").onclick = () => {
+  try {
+    const data=JSON.parse($("markdown").value);
+    data.background=$("bg").value; data.foreground=$("fg").value; data.button=$("bc").value;
+    $("markdown").value=JSON.stringify(data,null,2);
+  } catch(error) { message("Fix the JSON before applying colors: " + error.message); }
+};
+$("media").onchange = () => run(async () => {
+  const file=$("media").files[0];
+  if (!file) return;
+  const extensions={"image/png":"png","image/jpeg":"jpg","image/gif":"gif","image/webp":"webp"};
+  if (!extensions[file.type] || file.size>5000000) throw new Error("Choose a PNG, JPEG, GIF or WebP image under 5 MB.");
+  const filename=crypto.randomUUID()+"."+extensions[file.type];
+  let binary="";
+  for (const byte of new Uint8Array(await file.arrayBuffer())) binary+=String.fromCharCode(byte);
+  await api("/contents/assets/uploads/"+filename,{method:"PUT",body:JSON.stringify({message:"Upload image",branch:"main",content:btoa(binary)})});
+  const snippet="![Describe this image](media:"+filename+")";
+  $("media-result").textContent="Uploaded. Paste into Home, About or a post: "+snippet+" — Social portrait filename: "+filename;
+  message("Image uploaded. Add the Markdown image link to your page and save.");
+});
 function destination() {
+  if ($("mode").value !== "posts") return $("mode").value;
   const filename = $("filename").value.trim();
   const folder = $("folder").value.trim().replace(/^\/+|\/+$/g, "");
   if (!/^\d{4}-\d{2}-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(filename)) throw new Error("Use YYYY-MM-DD-title-with-hyphens.md");
@@ -143,8 +191,9 @@ function destination() {
 }
 $("save").onclick = () => run(async () => {
   const path = destination(), text = $("markdown").value;
-  if (!/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/.test(text)) throw new Error("Include YAML front matter between --- lines with title, summary, and tags.");
-  if (!/^title:\s*\S/m.test(text) || !/^summary:\s*\S/m.test(text)) throw new Error("Add title and summary to the front matter.");
+  if ($("mode").value === "posts" && !/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/.test(text)) throw new Error("Include YAML front matter between --- lines with title, summary, and tags.");
+  if ($("mode").value === "posts" && (!/^title:\s*\S/m.test(text) || !/^summary:\s*\S/m.test(text))) throw new Error("Add title and summary to the front matter.");
+  if (path === "social.json") JSON.parse(text);
   await api("/contents/" + path, {method:"PUT", body:JSON.stringify({
     message: (current ? "Update " : "Create ") + path, branch:"main",
     content:encode(text), ...(current ? {sha:current.sha} : {})
@@ -155,7 +204,7 @@ $("save").onclick = () => run(async () => {
   message("Saved to GitHub. Publishing has started. Check publishing progress above. If a build fails, check the Markdown fields.");
 });
 $("delete").onclick = () => run(async () => {
-  if (!current) throw new Error("Open the post you want to delete first.");
+  if (!current || !current.path.startsWith("posts/")) throw new Error("Open a post to delete it. Site pages are edited through the menu.");
   if (!confirm("Delete " + current.path + " from the blog?")) return;
   await api("/contents/" + current.path, {method:"DELETE", body:JSON.stringify({
     message:"Delete " + current.path, branch:"main", sha:current.sha
